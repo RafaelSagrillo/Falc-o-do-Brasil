@@ -26,6 +26,23 @@ update public.pdf_processing_jobs j set status='processing',attempts=attempts+1,
 leased_until=now()+interval '20 minutes' from target t where j.id=t.id returning j.*
 """
 
+def connection_error_code(error):
+    message = str(error).lower()
+    for fragment, code in (
+        ('password authentication failed', 'database_authentication_failed'),
+        ('tenant or user not found', 'database_user_or_project_invalid'),
+        ('could not translate host name', 'database_hostname_invalid'),
+        ('name or service not known', 'database_hostname_invalid'),
+        ('network is unreachable', 'database_network_unreachable_use_session_pooler'),
+        ('timeout', 'database_connection_timeout'),
+        ('invalid connection option', 'database_url_invalid'),
+        ('missing "="', 'database_url_invalid'),
+        ('ssl', 'database_tls_error'),
+    ):
+        if fragment in message:
+            return code
+    return 'database_connection_error' if isinstance(error, psycopg.OperationalError) else 'processing_error'
+
 def connect():
     return psycopg.connect(os.environ['DATABASE_URL'],sslmode='require',row_factory=dict_row,connect_timeout=20)
 
@@ -117,7 +134,7 @@ def main():
             else:time.sleep(30)
         except Exception as e:
             # Nao registrar URLs, segredos, consultas ou conteudo dos PDFs.
-            print(json.dumps({'event':'error','type':type(e).__name__}),flush=True)
+            print(json.dumps({'event':'error','type':type(e).__name__,'code':connection_error_code(e)}),flush=True)
             if job:
                 try:complete(job,'queued' if job['attempts']<3 else 'failed',type(e).__name__)
                 except Exception:pass
