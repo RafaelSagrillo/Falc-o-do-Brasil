@@ -1,5 +1,5 @@
 """Isolamento do parser. Executado em subprocesso com tempo limite pelo worker."""
-import json,sys,shutil,re
+import json,sys,shutil,re,unicodedata
 from pathlib import Path
 import pdfplumber
 import devorador_resumos as summary
@@ -9,18 +9,19 @@ import devorador_lucro as profit
 import devorador_produtos as products
 
 def classify(header,scope):
-    if 'Relação de Títulos a Pagar' in header:
-        if 'DESPESA FIXA REMY' in header:
+    normalized=' '.join(unicodedata.normalize('NFKD',header).encode('ascii','ignore').decode().upper().split())
+    if 'RELACAO DE TITULOS A PAGAR' in normalized:
+        if 'DESPESA FIXA REMY' in normalized:
             if scope!='familia':raise ValueError('scope_mismatch')
             return 'Despesa Remy novo.pdf',expenses.extract
-        if 'DESPESA FIXA FALCAO' in header:
+        if 'DESPESA FIXA FALCAO' in normalized:
             if scope!='empresa':raise ValueError('scope_mismatch')
             return 'Despesa Falcao novo.pdf',expenses.extract
     if scope!='empresa':raise ValueError('unsupported_family_report')
-    if 'Análise do Lucro Bruto' in header:return 'Analise de Lucro Bruto - novo.pdf',profit.extract
-    if 'RELAÇÃO DE TÍTULOS EM ABERTO' in header and 'Títulos a RECEBER' in header:
+    if 'ANALISE DO LUCRO BRUTO' in normalized:return 'Analise de Lucro Bruto - novo.pdf',profit.extract
+    if 'TITULOS EM ABERTO' in normalized and ('TITULOS A RECEBER' in normalized or 'A RECEBER' in normalized):
         return 'Inadimplentes novo.pdf',receivables.extract
-    if 'Listagem de produto por último custo' in header:return 'Listagem de Produtos novo.pdf',products.extract
+    if 'LISTAGEM DE PRODUTO POR ULTIMO CUSTO' in normalized:return 'Listagem de Produtos novo.pdf',products.extract
     raise ValueError('unsupported_report')
 
 def parse(source,scope,original_name):
