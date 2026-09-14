@@ -51,5 +51,7 @@ if __name__=='__main__':
         Path(sys.argv[4]).write_text(json.dumps(result,ensure_ascii=False),encoding='utf-8')
     except Exception as e:
         # Nao enviar conteudo financeiro para logs da hospedagem.
-        print(type(e).__name__,file=sys.stderr)
+        safe_codes={'scope_mismatch','unsupported_family_report','unsupported_report','ocr_required'}
+        code=str(e) if isinstance(e,ValueError) and str(e) in safe_codes else type(e).__name__
+        print(code,file=sys.stderr)
         sys.exit(2)
