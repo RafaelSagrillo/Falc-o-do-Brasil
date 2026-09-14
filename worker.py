@@ -1,5 +1,6 @@
 """Worker privado, sem servidor HTTP. Banco e Storage acessados por TLS.
 DATABASE_URL: conexao Postgres/session pooler.
+DATABASE_PASSWORD: opcional; senha bruta evita problemas de codificacao na URL.
 SUPABASE_URL, SUPABASE_SECRET_KEY: segredos apenas no servidor.
 """
 import hashlib,json,os,subprocess,sys,tempfile,time,uuid
@@ -44,6 +45,11 @@ def connection_error_code(error):
     return 'database_connection_error' if isinstance(error, psycopg.OperationalError) else 'processing_error'
 
 def connect():
+    password=os.environ.get('DATABASE_PASSWORD')
+    if password:
+        return psycopg.connect(host='aws-0-us-east-1.pooler.supabase.com',port=5432,
+            dbname='postgres',user='postgres.ijbgupvthfykxnagljzq',password=password,
+            sslmode='require',row_factory=dict_row,connect_timeout=20)
     return psycopg.connect(os.environ['DATABASE_URL'],sslmode='require',row_factory=dict_row,connect_timeout=20)
 
 def current(conn,job):
