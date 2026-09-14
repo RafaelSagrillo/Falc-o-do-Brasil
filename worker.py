@@ -119,7 +119,10 @@ def process(job):
         except subprocess.TimeoutExpired:
             complete(job,'needs_review','parser_timeout');return
         if run.returncode:
-            complete(job,'needs_review','unsupported_or_unreadable_pdf');return
+            code=run.stderr.decode(errors='ignore').strip().splitlines()[-1] if run.stderr else 'parser_error'
+            allowed={'scope_mismatch','unsupported_family_report','unsupported_report','ocr_required',
+                     'ValueError','KeyError','IndexError','TypeError','PDFSyntaxError'}
+            complete(job,'needs_review',code if code in allowed else 'parser_error');return
         result=json.loads(out.read_text(encoding='utf-8'))
         if result['document']['sha256']!=digest:raise ValueError('digest_mismatch')
         save(job,result)
