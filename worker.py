@@ -48,7 +48,7 @@ def connect():
     password=os.environ.get('DATABASE_PASSWORD')
     if password:
         return psycopg.connect(host='aws-0-us-east-1.pooler.supabase.com',port=5432,
-            dbname='postgres',user='postgres.ijbgupvthfykxnagljzq',password=password,
+            dbname='postgres',user=os.environ.get('DATABASE_USER','postgres.ijbgupvthfykxnagljzq'),password=password,
             sslmode='require',row_factory=dict_row,connect_timeout=20)
     return psycopg.connect(os.environ['DATABASE_URL'],sslmode='require',row_factory=dict_row,connect_timeout=20)
 
