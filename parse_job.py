@@ -8,8 +8,9 @@ import devorador_inadimplencia as receivables
 import devorador_lucro as profit
 import devorador_produtos as products
 
-def classify(header,scope):
+def classify(header,scope,original_name=''):
     normalized=' '.join(unicodedata.normalize('NFKD',header).encode('ascii','ignore').decode().upper().split())
+    normalized_name=' '.join(unicodedata.normalize('NFKD',original_name).encode('ascii','ignore').decode().upper().split())
     if 'RELACAO DE TITULOS A PAGAR' in normalized:
         if 'DESPESA FIXA REMY' in normalized:
             if scope!='familia':raise ValueError('scope_mismatch')
@@ -21,6 +22,8 @@ def classify(header,scope):
     if 'ANALISE DO LUCRO BRUTO' in normalized:return 'Analise de Lucro Bruto - novo.pdf',profit.extract
     if 'TITULOS EM ABERTO' in normalized and ('TITULOS A RECEBER' in normalized or 'A RECEBER' in normalized):
         return 'Inadimplentes novo.pdf',receivables.extract
+    if scope=='empresa' and ('INADIMPLENCIA' in normalized_name or 'INADIMPLENTES' in normalized_name):
+        return 'Inadimplentes novo.pdf',receivables.extract
     if 'LISTAGEM DE PRODUTO POR ULTIMO CUSTO' in normalized:return 'Listagem de Produtos novo.pdf',products.extract
     raise ValueError('unsupported_report')
 
@@ -28,7 +31,7 @@ def parse(source,scope,original_name):
     with pdfplumber.open(source) as pdf:
         header=pdf.pages[0].extract_text() or ''
         if not header:raise ValueError('ocr_required')
-    name,extractor=classify(header,scope)
+    name,extractor=classify(header,scope,original_name)
     canonical=source.parent/name
     shutil.copyfile(source,canonical)
     out=summary.process(canonical)
