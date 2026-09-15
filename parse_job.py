@@ -74,6 +74,12 @@ if __name__=='__main__':
     except Exception as e:
         # Nao enviar conteudo financeiro para logs da hospedagem.
         safe_codes={'scope_mismatch','unsupported_family_report','unsupported_report','ocr_required'}
-        code=str(e) if isinstance(e,ValueError) and str(e) in safe_codes else type(e).__name__
+        message=str(e)
+        if isinstance(e,ValueError) and message in safe_codes: code=message
+        elif isinstance(e,ValueError) and message.startswith('Layout desconhecido'): code='receivables_layout_unknown'
+        elif isinstance(e,ValueError) and message.startswith('Titulo sem contexto'): code='receivables_context_missing'
+        elif isinstance(e,ValueError) and message.startswith('Valor ilegivel'): code='receivables_amount_format'
+        elif isinstance(e,ValueError) and 'does not match format' in message: code='receivables_date_format'
+        else: code=type(e).__name__
         print(code,file=sys.stderr)
         sys.exit(2)
