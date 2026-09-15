@@ -1,3 +1,7 @@
+----------------------------------------------------------------------
+Ran 4 tests in 2.324s
+
+OK
 """Leitor dos tres modelos de titulos em aberto Command. pdfplumber==0.11.8.
 Uso: python devorador_inadimplencia.py pasta. Saida JSON, sem acesso a rede.
 Conserva documento/parcela como impressos: identificadores podem estar truncados.
@@ -9,10 +13,11 @@ from datetime import datetime
 import pdfplumber
 
 def amount(s):
-    s=re.sub(r'\s+','',s)
-    if not s: return '0.00'
-    if not re.fullmatch(r'-?[\d.]+,\d{2}',s): raise ValueError('Valor ilegivel '+s)
-    return format(Decimal(s.replace('.','').replace(',','.')),'.2f')
+    compact=re.sub(r'\s+','',s).replace('R$','')
+    if not compact or compact in ('-','--'): return '0.00'
+    values=re.findall(r'-?\d[\d.]*,\d{2}',compact)
+    if len(values)!=1: raise ValueError('Valor ilegivel')
+    return format(Decimal(values[0].replace('.','').replace(',','.')),'.2f')
 
 def extract(path):
     rows=[];checks=[];seller=None;person=None
