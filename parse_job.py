@@ -81,5 +81,9 @@ if __name__=='__main__':
         elif isinstance(e,ValueError) and message.startswith('Valor ilegivel'): code='receivables_amount_format'
         elif isinstance(e,ValueError) and 'does not match format' in message: code='receivables_date_format'
         else: code=type(e).__name__
+        try:
+            Path(sys.argv[4]).write_text(json.dumps({'error_code':code}),encoding='utf-8')
+        except Exception:
+            pass
         print(code,file=sys.stderr)
         sys.exit(2)
