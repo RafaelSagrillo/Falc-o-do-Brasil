@@ -36,3 +36,14 @@ somar a mesma divida/venda em varios documentos. Nao efetua baixa automatica.
 
 O worker utiliza uma conexao administrativa no servidor. Nenhuma permissao de
 acesso foi concedida a usuarios anonimos ou usuarios do aplicativo.
+
+## Interface do aplicativo
+
+A proxima etapa e um frontend separado em React para envio de PDFs,
+acompanhamento do processamento, consulta dos dados e relatorios.
+
+O acabamento visual usara React Spring para animacoes discretas: entrada de
+indicadores e graficos, abertura de detalhes de documentos, estados de
+processamento e transicoes de filtros. A dependencia sera instalada junto com
+o projeto frontend, quando existirem os arquivos `package.json` e a primeira
+tela; este worker Python nao possui frontend em que ela possa ser usada ainda.
