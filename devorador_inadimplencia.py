@@ -1,7 +1,3 @@
-----------------------------------------------------------------------
-Ran 4 tests in 2.324s
-
-OK
 """Leitor dos tres modelos de titulos em aberto Command. pdfplumber==0.11.8.
 Uso: python devorador_inadimplencia.py pasta. Saida JSON, sem acesso a rede.
 Conserva documento/parcela como impressos: identificadores podem estar truncados.
@@ -12,6 +8,66 @@ from decimal import Decimal
 from datetime import datetime
 import pdfplumber
 
+def extract_current(path):
+    rows=[];checks=[];person=None;person_sum=Decimal(0);total_sum=Decimal(0)
+    with pdfplumber.open(path) as pdf:
+        first=pdf.pages[0].extract_text() or ''
+        match=re.search(r'Data base:\s*(\d{2}/\d{2}/\d{4})',first)
+        if not match: raise ValueError('Data base ausente')
+        reference=datetime.strptime(match[1],'%d/%m/%Y').date()
+        for pn,page in enumerate(pdf.pages,1):
+            if abs(page.width-595.5)>2: raise ValueError('Layout desconhecido')
+            words=page.extract_words();events=[]
+            for w in words:
+                t=w['text'];x=w['x0']
+                if t=='CLIENTE' and 55<x<80: events.append((w['top'],'person',w))
+                elif re.fullmatch(r'[A-Z]{2}\d{4}/\d+',t) and 55<x<80: events.append((w['top'],'title',w))
+                elif t=='Total' and x>470: events.append((w['top'],'person_total',w))
+                elif t.startswith('Totaliza') and 180<x<230: events.append((w['top'],'grand_total',w))
+            for y,kind,w in sorted(events):
+                def get(a,b,height=2):
+                    cs=[c for c in page.chars if a<=(c['x0']+c['x1'])/2<b and y-1.8<=c['top']<y+height]
+                    return ''.join(c['text'] for c in sorted(cs,key=lambda c:c['x0'])).strip()
+                if kind=='person':
+                    line=' '.join(z['text'] for z in sorted(words,key=lambda z:z['x0'])
+                                  if abs(z['top']-y)<2 and 55<z['x0']<570)
+                    m=re.match(r'CLIENTE\s+(\S+)\s+-\s+(.*)',line)
+                    if not m: raise ValueError('Cliente sem contexto')
+                    person={'cliente_codigo':m[1],'razao_social':m[2].strip(),'nome_fantasia':None}
+                    person_sum=Decimal(0)
+                elif kind=='title':
+                    if person is None: raise ValueError('Titulo sem contexto')
+                    line_words=[z for z in sorted(words,key=lambda z:z['x0']) if abs(z['top']-y)<2]
+                    field=lambda a,b:' '.join(z['text'] for z in line_words if a<=z['x0']<b).strip()
+                    due=datetime.strptime(field(430,500),'%d/%m/%Y').date()
+                    saldo=amount(field(530,575));value=Decimal(saldo)
+                    titulo=field(60,123);documento=field(123,198);seq=field(198,212)
+                    data={**person,'vendedor':None,'empresa_codigo':'1','titulo_impresso':titulo,
+                          'documento_parcela_impresso':documento+('/'+seq if seq else ''),
+                          'emissao':None,'emissao_texto_impresso':None,'revisar_identificacao':False,
+                          'vencimento':due.isoformat(),'dias_impressos':field(500,530),
+                          'dias_calculados':(reference-due).days,'data_referencia':reference.isoformat(),
+                          'portador':field(210,320),'tipo_documento':field(320,430),
+                          'vencido':saldo,'a_vencer':'0.00'}
+                    rows.append(dict(source_page=pn,source_row=sum(r['source_page']==pn for r in rows)+1,
+                                     row_type='titulo_a_receber',data=data,validation_status='passed'))
+                    person_sum+=value;total_sum+=value
+                elif kind=='person_total':
+                    printed=Decimal(amount(get(535,570)))
+                    checks.append(dict(page=pn,label='Total Pessoa',passed=printed==person_sum,
+                                       printed=str(printed),calculated=str(person_sum)))
+                elif kind=='grand_total':
+                    printed=Decimal(amount(get(435,510)))
+                    checks.append(dict(page=pn,label='Total Geral',passed=printed==total_sum,
+                                       printed=str(printed),calculated=str(total_sum)))
+        passed=bool(rows) and any(c['label']=='Total Geral' for c in checks) and all(c['passed'] for c in checks)
+        if not passed:
+            for row in rows: row['validation_status']='needs_review'
+        return dict(original_name=path.name,sha256=hashlib.sha256(path.read_bytes()).hexdigest(),rows=rows,
+                    validation=dict(passed=passed,row_count=len(rows),identification_review_count=0,checks=checks,
+                    limitations=['Relatorio nao informa vendedor nem data de emissao.',
+                                 'Cada relatorio e um retrato na data de referencia. Nao somar retratos sobrepostos.']))
+
 def amount(s):
     compact=re.sub(r'\s+','',s).replace('R$','')
     if not compact or compact in ('-','--'): return '0.00'
@@ -20,6 +76,10 @@ def amount(s):
     return format(Decimal(values[0].replace('.','').replace(',','.')),'.2f')
 
 def extract(path):
+    with pdfplumber.open(path) as probe:
+        first=probe.pages[0].extract_text() or ''
+    if 'Inadimplência' in first and 'Data base:' in first:
+        return extract_current(path)
     rows=[];checks=[];seller=None;person=None
     person_sum=[Decimal(0),Decimal(0)];seller_sum=[Decimal(0),Decimal(0)]
     with pdfplumber.open(path) as pdf:
