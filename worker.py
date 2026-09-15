@@ -119,7 +119,8 @@ def process(job):
         except subprocess.TimeoutExpired:
             complete(job,'needs_review','parser_timeout');return
         if run.returncode:
-            code=run.stderr.decode(errors='ignore').strip().splitlines()[-1] if run.stderr else 'parser_error'
+            try: code=json.loads(out.read_text(encoding='utf-8')).get('error_code','parser_error')
+            except Exception: code='parser_error'
             safe=bool(re.fullmatch(r'[A-Za-z][A-Za-z0-9_]{0,63}',code))
             complete(job,'needs_review',code if safe else 'parser_error');return
         result=json.loads(out.read_text(encoding='utf-8'))
