@@ -1,5 +1,6 @@
 """Isolamento do parser. Executado em subprocesso com tempo limite pelo worker."""
-import json,sys,shutil,re,unicodedata
+import hashlib,json,sys,shutil,re,unicodedata
+from decimal import Decimal
 from pathlib import Path
 import pdfplumber
 import devorador_resumos as summary
@@ -34,8 +35,26 @@ def parse(source,scope,original_name):
     name,extractor=classify(header,scope,original_name)
     canonical=source.parent/name
     shutil.copyfile(source,canonical)
-    out=summary.process(canonical)
     detail=extractor(canonical)
+    try:
+        out=summary.process(canonical)
+    except StopIteration:
+        if extractor is not receivables.extract:
+            raise
+        rows=detail['rows']
+        with pdfplumber.open(canonical) as pdf:
+            page_count=len(pdf.pages)
+            last_text=pdf.pages[-1].extract_text() or ''
+        due_dates=sorted(r['data']['vencimento'] for r in rows)
+        metrics={key:format(sum((Decimal(r['data'][key]) for r in rows),Decimal(0)),'.2f')
+                 for key in ('vencido','a_vencer')}
+        out={'document':dict(original_name=canonical.name,scope=scope,report_type='titulos_abertos',
+              sha256=hashlib.sha256(canonical.read_bytes()).hexdigest(),page_count=page_count,
+              parser_version=summary.VERSION,status='registered',
+              period_start=due_dates[0] if due_dates else None,period_end=due_dates[-1] if due_dates else None,
+              business_classification=canonical.stem),
+             'summary':dict(source_page=page_count,metrics=metrics,extracted_text=last_text,
+              validation_status='pending',validation_details={'notes':['Resumo calculado pelas parcelas; linha Total Geral ausente.']})}
     out['document']['original_name']=original_name
     out['document']['business_classification']=header[:2000]
     out['document']['scope']=scope
