@@ -3,7 +3,7 @@ DATABASE_URL: conexao Postgres/session pooler.
 DATABASE_PASSWORD: opcional; senha bruta evita problemas de codificacao na URL.
 SUPABASE_URL, SUPABASE_SECRET_KEY: segredos apenas no servidor.
 """
-import hashlib,json,os,subprocess,sys,tempfile,time,uuid
+import hashlib,json,os,re,subprocess,sys,tempfile,time,uuid
 from pathlib import Path
 from urllib.request import Request,urlopen
 from urllib.parse import quote
@@ -120,9 +120,8 @@ def process(job):
             complete(job,'needs_review','parser_timeout');return
         if run.returncode:
             code=run.stderr.decode(errors='ignore').strip().splitlines()[-1] if run.stderr else 'parser_error'
-            allowed={'scope_mismatch','unsupported_family_report','unsupported_report','ocr_required',
-                     'ValueError','KeyError','IndexError','TypeError','PDFSyntaxError'}
-            complete(job,'needs_review',code if code in allowed else 'parser_error');return
+            safe=bool(re.fullmatch(r'[A-Za-z][A-Za-z0-9_]{0,63}',code))
+            complete(job,'needs_review',code if safe else 'parser_error');return
         result=json.loads(out.read_text(encoding='utf-8'))
         if result['document']['sha256']!=digest:raise ValueError('digest_mismatch')
         save(job,result)
