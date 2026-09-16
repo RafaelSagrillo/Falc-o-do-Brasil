@@ -16,6 +16,8 @@ npm start
 
 O servidor de produção usa `PORT` (padrão 3000). Em Railway, configure a raiz
 do serviço como `/frontend`, Dockerfile `Dockerfile`, healthcheck `/health`.
+O serviço `painel-falcao` acompanha a branch `feat/painel-falcao`. O primeiro
+deploy deve usar um commit desta branch que contenha a pasta `frontend`.
 Não copie as variáveis privadas do processador PDF para este serviço.
 
 ## Funcionalidades desta versão
@@ -56,11 +58,10 @@ sobrepostos. Vendas por cidade precisam de fonte com cidade/CNPJ/carteira.
 
 ## Design e referências
 
-Figma e Lovable constavam instalados, mas não expuseram ferramentas executáveis
-na sessão de criação. Esta implementação foi realizada diretamente no código;
-nenhum arquivo Figma nem projeto Lovable foi criado por esta etapa. A captura
-do Supply Chain Simulator foi utilizada como referência visual, sem copiar seu
-código. A paleta é uma proposta; não havia manual de marca ou logo oficial.
+A implementação base foi realizada diretamente no código. Figma e Lovable
+estão disponíveis para desenvolver os arquivos de design a partir desta base.
+A captura do Supply Chain Simulator foi utilizada como referência visual, sem
+copiar seu código. A paleta é uma proposta; não havia manual de marca ou logo oficial.
 
 Tokens: floresta `#15251f`, grafite `#101311`, lima suave `#d8e887`, âmbar
 `#c0a066`, fundo `#f5f6f1`. DM Sans para interface e Instrument Serif em destaques.
